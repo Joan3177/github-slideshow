@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pomodoro 25/5</title>
+<meta name="description" content="Técnica pomodoro con notificaciones en el teléfono y el reloj inteligente.">
+<meta name="theme-color" content="#1c1917">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pomodoro">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #1c1917; --card: #292524; --text: #f5f5f4; --muted: #a8a29e;
+    --work: #e5484d; --rest: #30a46c; --track: #44403c; --accent: var(--work);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  main { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font-size: 1.25rem; margin: 0; text-align: center; font-weight: 600; }
+  .phase { text-align: center; font-size: 1.1rem; color: var(--accent); font-weight: 600; min-height: 1.4em; }
+  .ring { position: relative; width: min(300px, 80vw); aspect-ratio: 1; margin: 0 auto; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 10; }
+  .ring .track { stroke: var(--track); }
+  .ring .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .3s linear, stroke .3s; }
+  .time {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: clamp(3rem, 16vw, 4.5rem); font-variant-numeric: tabular-nums; font-weight: 300;
+  }
+  .dots { display: flex; justify-content: center; gap: 12px; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--work); }
+  .dot.done { background: var(--work); }
+  .dot.current { box-shadow: 0 0 0 4px rgba(229,72,77,.3); }
+  .controls { display: flex; gap: 12px; justify-content: center; }
+  button {
+    font: inherit; border: 0; border-radius: 12px; padding: 14px 22px; cursor: pointer;
+    background: var(--card); color: var(--text); min-width: 110px;
+  }
+  button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .4; cursor: default; }
+  details { background: var(--card); border-radius: 12px; padding: 12px 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .settings { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; font-size: .95rem; }
+  label { display: flex; flex-direction: column; gap: 6px; }
+  label.row { flex-direction: row; align-items: center; gap: 10px; }
+  input[type=text] {
+    font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--track);
+    background: var(--bg); color: var(--text); width: 100%;
+  }
+  .small { font-size: .85rem; color: var(--muted); line-height: 1.45; margin: 0; }
+  .status { font-size: .85rem; color: var(--muted); text-align: center; min-height: 1.2em; }
+  .warn { color: #f5a524; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🍅 Pomodoro 25/5</h1>
+  <div class="phase" id="phase">Listo para empezar</div>
+  <div class="ring">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="track" cx="60" cy="60" r="52"></circle>
+      <circle class="bar" id="bar" cx="60" cy="60" r="52"></circle>
+    </svg>
+    <div class="time" id="time" role="timer" aria-live="off">25:00</div>
+  </div>
+  <div class="dots" id="dots" aria-label="Pomodoros completados"></div>
+  <div class="controls">
+    <button class="primary" id="startBtn">Iniciar</button>
+    <button id="resetBtn">Reiniciar</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <details>
+    <summary>⌚ Notificaciones en el reloj</summary>
+    <div class="settings">
+      <button id="permBtn">Activar notificaciones</button>
+      <button id="testBtn">Enviar notificación de prueba</button>
+      <label class="row"><input type="checkbox" id="wakeChk"> Mantener la pantalla encendida</label>
+      <p class="small">
+        <b>iPhone + Apple Watch:</b> en Safari toca Compartir → «Añadir a pantalla de inicio», abre la app desde ese icono
+        y activa las notificaciones (iOS 16.4 o superior). Las notificaciones del iPhone se reflejan en el Watch
+        cuando el iPhone está bloqueado y el reloj en tu muñeca.<br>
+        <b>Android + Wear OS / Galaxy Watch:</b> las notificaciones de Chrome se reenvían al reloj automáticamente.
+      </p>
+      <label>Tema de ntfy (aviso garantizado aunque la app esté cerrada)
+        <input type="text" id="ntfyTopic" placeholder="ej. pomodoro-joan-8f3k2" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </label>
+      <p class="small">
+        Opcional, recomendado. Instala la app gratuita <b>ntfy</b> en tu teléfono, suscríbete al mismo tema y permite sus
+        notificaciones en el reloj. Al iniciar, la app programa en el servidor ntfy.sh todos los avisos de trabajo y descanso,
+        así llegan aunque el teléfono suspenda el navegador. Usa un nombre difícil de adivinar: los temas de ntfy.sh son públicos.
+      </p>
+    </div>
+  </details>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  // ?rapido=1 → minutos convertidos en segundos (para probar).
+  const FAST = new URLSearchParams(location.search).has('rapido');
+  const MIN = FAST ? 1000 : 60000;
+  const WORK = 25 * MIN, REST = 5 * MIN, MAX_POMODOROS = 4;
+
+  // Secuencia: T1 D1 T2 D2 T3 D3 T4 → fin (máximo 4 pomodoros).
+  const PHASES = [];
+  for (let i = 1; i <= MAX_POMODOROS; i++) {
+    PHASES.push({ type: 'work', n: i, dur: WORK });
+    if (i < MAX_POMODOROS) PHASES.push({ type: 'rest', n: i, dur: REST });
+  }
+
+  const KEY = 'pomodoro-state-v1', TOPIC_KEY = 'pomodoro-ntfy-topic';
+  const $ = (id) => document.getElementById(id);
+  const R = 52, C = 2 * Math.PI * R;
+  $('bar').style.strokeDasharray = C;
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  // index: fase actual (PHASES.length = terminado); endAt: fin si corre; left: restante si en pausa.
+  let state = { index: 0, endAt: null, left: PHASES[0].dur, started: false };
+  try { const s = JSON.parse(store.get(KEY)); if (s && typeof s.index === 'number') state = s; } catch {}
+  const save = () => store.set(KEY, JSON.stringify(state));
+
+  // ---------- Notificaciones ----------
+  let swReg = null;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch(() => {});
+  }
+
+  function messageFor(i) {
+    if (i >= PHASES.length) return { title: '🎉 ¡4 pomodoros completados!', body: 'Sesión terminada. Toma un descanso largo.', tag: 'tada' };
+    const p = PHASES[i];
+    return p.type === 'work'
+      ? { title: `🍅 Inicio de trabajo · Pomodoro ${p.n}/${MAX_POMODOROS}`, body: '25 minutos de concentración.', tag: 'tomato' }
+      : { title: `☕ Inicio de descanso · ${p.n}/${MAX_POMODOROS - 1}`, body: '5 minutos de descanso.', tag: 'coffee' };
+  }
+
+  // Con ntfy configurado, el aviso del sistema lo entrega ntfy (evita duplicados en el reloj).
+  async function notify(i) {
+    const { title, body } = messageFor(i);
+    beep(i < PHASES.length && PHASES[i].type === 'rest' ? 2 : 1);
+    if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    if (topic() || !('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts = { body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'pomodoro', renotify: true, vibrate: [300, 150, 300] };
+    try {
+      const reg = swReg || (await navigator.serviceWorker?.ready);
+      if (reg) return reg.showNotification(title, opts);
+    } catch {}
+    try { new Notification(title, opts); } catch {}
+  }
+
+  let audio = null;
+  function beep(times) {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      for (let k = 0; k < times; k++) {
+        const t = audio.currentTime + k * 0.35, o = audio.createOscillator(), g = audio.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.start(t); o.stop(t + 0.32);
+      }
+    } catch {}
+  }
+
+  async function askPermission() {
+    if (!('Notification' in window)) {
+      setStatus('Este navegador no permite notificaciones. En iPhone, añade la app a la pantalla de inicio.', true);
+      return false;
+    }
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    updatePermUI();
+    return Notification.permission === 'granted';
+  }
+
+  // ---------- ntfy.sh (avisos programados en servidor) ----------
+  const topic = () => (store.get(TOPIC_KEY) || '').trim();
+
+  function ntfyPublish(i, atMs) {
+    const t = topic();
+    if (!t) return Promise.resolve();
+    const { title, body, tag } = messageFor(i);
+    const msg = { topic: t, title, message: body, tags: [tag], priority: 4, click: location.href.split('?')[0] };
+    const delaySec = Math.round((atMs - Date.now()) / 1000);
+    if (delaySec >= 10) msg.delay = String(Math.floor(atMs / 1000)); // ntfy acepta marca de tiempo Unix
+    return fetch('https://ntfy.sh/', { method: 'POST', body: JSON.stringify(msg) })
+      .then((r) => { if (!r.ok) throw new Error(r.status); })
+      .catch(() => setStatus('No se pudo programar el aviso en ntfy.sh (¿sin conexión?).', true));
+  }
+
+  // Programa en ntfy todas las transiciones que faltan desde la fase actual.
+  function ntfyScheduleRemaining(includeCurrent) {
+    if (!topic()) return;
+    if (includeCurrent) ntfyPublish(state.index, Date.now());
+    let at = state.endAt;
+    for (let i = state.index + 1; i <= PHASES.length; i++) {
+      ntfyPublish(i, at);
+      if (i < PHASES.length) at += PHASES[i].dur;
+    }
+  }
+
+  // ---------- Temporizador ----------
+  function start() {
+    if (state.index >= PHASES.length) reset(true);
+    const first = !state.started;
+    state.started = true;
+    state.endAt = Date.now() + state.left;
+    save();
+    if (first) notify(state.index);
+    ntfyScheduleRemaining(first);
+    if (topic() && !first) setStatus('Avisos de ntfy reprogramados.');
+    requestWake();
+    render();
+  }
+
+  function pause() {
+    state.left = Math.max(0, state.endAt - Date.now());
+    state.endAt = null;
+    save();
+    releaseWake();
+    if (topic()) setStatus('En pausa. Los avisos ya programados en ntfy no se pueden cancelar desde aquí: pueden llegar adelantados.', true);
+    render();
+  }
+
+  function reset(silent) {
+    if (!silent && state.started && !confirm('¿Reiniciar la sesión de pomodoros?')) return;
+    if (!silent && topic() && state.endAt) setStatus('Reiniciado. Los avisos ya programados en ntfy pueden seguir llegando.', true);
+    else if (!silent) setStatus('');
+    state = { index: 0, endAt: null, left: PHASES[0].dur, started: false };
+    save(); releaseWake(); render();
+  }
+
+  function tick() {
+    if (state.endAt == null) return;
+    const now = Date.now();
+    if (now < state.endAt) return render();
+    // Avanza todas las fases vencidas (p. ej. si la app estuvo en segundo plano).
+    while (state.index < PHASES.length && now >= state.endAt) {
+      state.index++;
+      if (state.index < PHASES.length) state.endAt += PHASES[state.index].dur;
+    }
+    if (state.index >= PHASES.length) { state.endAt = null; state.left = 0; releaseWake(); }
+    save();
+    notify(state.index);
+    render();
+  }
+
+  // ---------- Interfaz ----------
+  const fmt = (ms) => {
+    const s = Math.ceil(ms / 1000);
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  function render() {
+    const done = state.index >= PHASES.length;
+    const p = PHASES[Math.min(state.index, PHASES.length - 1)];
+    const running = state.endAt != null;
+    const left = done ? 0 : running ? Math.max(0, state.endAt - Date.now()) : state.left;
+
+    document.documentElement.style.setProperty('--accent', done || p.type === 'work' ? 'var(--work)' : 'var(--rest)');
+    $('time').textContent = fmt(left);
+    $('bar').style.strokeDashoffset = done ? 0 : C * (left / p.dur);
+    $('phase').textContent = done ? '🎉 ¡4 pomodoros completados!'
+      : !state.started ? 'Listo para empezar'
+      : (p.type === 'work' ? `Trabajo · Pomodoro ${p.n} de ${MAX_POMODOROS}` : `Descanso · ${p.n} de ${MAX_POMODOROS - 1}`)
+        + (running ? '' : ' (en pausa)');
+    document.title = state.started && !done ? `${fmt(left)} · ${p.type === 'work' ? 'Trabajo' : 'Descanso'}` : 'Pomodoro 25/5';
+
+    const completed = done ? MAX_POMODOROS : PHASES.slice(0, state.index).filter((x) => x.type === 'work').length;
+    $('dots').innerHTML = Array.from({ length: MAX_POMODOROS }, (_, k) =>
+      `<span class="dot${k < completed ? ' done' : ''}${!done && state.started && p.type === 'work' && k === p.n - 1 ? ' current' : ''}"></span>`).join('');
+
+    $('startBtn').textContent = done ? 'Nueva sesión' : running ? 'Pausar' : state.started ? 'Reanudar' : 'Iniciar';
+  }
+
+  function setStatus(text, warn) {
+    $('status').textContent = text;
+    $('status').classList.toggle('warn', !!warn);
+  }
+
+  function updatePermUI() {
+    const b = $('permBtn');
+    if (!('Notification' in window)) { b.textContent = 'Notificaciones no disponibles aquí'; b.disabled = true; return; }
+    const p = Notification.permission;
+    b.textContent = p === 'granted' ? '✅ Notificaciones activadas' : p === 'denied' ? '🚫 Bloqueadas en ajustes del navegador' : 'Activar notificaciones';
+    b.disabled = p !== 'default';
+  }
+
+  // ---------- Pantalla encendida ----------
+  let wakeLock = null;
+  async function requestWake() {
+    if (!$('wakeChk').checked || !('wakeLock' in navigator) || state.endAt == null) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+  }
+  function releaseWake() { try { wakeLock?.release(); } catch {} wakeLock = null; }
+
+  // ---------- Eventos ----------
+  $('startBtn').addEventListener('click', async () => {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch {}
+    if (state.endAt != null) return pause();
+    await askPermission();
+    start();
+  });
+  $('resetBtn').addEventListener('click', () => reset(false));
+  $('permBtn').addEventListener('click', askPermission);
+  $('testBtn').addEventListener('click', async () => {
+    const ok = await askPermission();
+    if (ok) {
+      const reg = swReg || (await navigator.serviceWorker?.ready);
+      const opts = { body: 'Si la ves en el reloj, todo está listo.', icon: 'icon-192.png', tag: 'pomodoro-test', vibrate: [200, 100, 200] };
+      setTimeout(() => (reg ? reg.showNotification('⌚ Prueba de Pomodoro', opts) : new Notification('⌚ Prueba de Pomodoro', opts)), 5000);
+      setStatus('Notificación local en 5 s: bloquea el teléfono para verla en el reloj.');
+    }
+    if (topic()) {
+      fetch('https://ntfy.sh/', { method: 'POST', body: JSON.stringify({ topic: topic(), title: '⌚ Prueba de Pomodoro (ntfy)', message: 'Aviso de ntfy recibido.', tags: ['watch'], priority: 4, delay: String(Math.floor(Date.now() / 1000) + 15) }) })
+        .then((r) => setStatus(r.ok ? 'Prueba enviada: notificación local en 5 s y de ntfy en ~15 s.' : 'ntfy.sh rechazó la prueba.', !r.ok))
+        .catch(() => setStatus('No se pudo contactar ntfy.sh.', true));
+    }
+  });
+  $('ntfyTopic').value = topic();
+  $('ntfyTopic').addEventListener('change', (e) => {
+    const v = e.target.value.trim().replace(/[^A-Za-z0-9_-]/g, '');
+    e.target.value = v; store.set(TOPIC_KEY, v);
+    setStatus(v ? `Tema ntfy guardado: ${v}` : 'Tema ntfy eliminado.');
+  });
+  $('wakeChk').checked = store.get('pomodoro-wake') === '1';
+  $('wakeChk').addEventListener('change', (e) => {
+    store.set('pomodoro-wake', e.target.checked ? '1' : '0');
+    e.target.checked ? requestWake() : releaseWake();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { tick(); requestWake(); }
+  });
+
+  updatePermUI();
+  if (FAST) setStatus('Modo rápido: 1 minuto = 1 segundo.');
+  render();
+  setInterval(tick, 250);
+})();
+</script>
+</body>
+</html>
