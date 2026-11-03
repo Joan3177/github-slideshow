@@ -196,7 +196,7 @@
     const t = topic();
     if (!t) return Promise.resolve();
     const { title, body, tag } = messageFor(i);
-    const msg = { topic: t, title, message: body, tags: [tag], priority: 4, click: location.href.split('?')[0] };
+    const msg = { topic: t, title, message: body, tags: [tag], priority: 4 };
     const delaySec = Math.round((atMs - Date.now()) / 1000);
     if (delaySec >= 10) msg.delay = String(Math.floor(atMs / 1000)); // ntfy acepta marca de tiempo Unix
     return fetch('https://ntfy.sh/', { method: 'POST', body: JSON.stringify(msg) })
