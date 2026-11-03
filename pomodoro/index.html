@@ -60,6 +60,9 @@
   .small { font-size: .85rem; color: var(--muted); line-height: 1.45; margin: 0; }
   .status { font-size: .85rem; color: var(--muted); text-align: center; min-height: 1.2em; }
   .warn { color: #f5a524; }
+  .banner { background: #3a2a0a; border: 1px solid #f5a524; border-radius: 12px; padding: 12px 16px; font-size: .9rem; line-height: 1.45; }
+  .banner b { color: #f5a524; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -79,8 +82,9 @@
     <button id="resetBtn">Reiniciar</button>
   </div>
   <div class="status" id="status"></div>
+  <div class="banner" id="iosHint" hidden></div>
 
-  <details>
+  <details id="watchBox">
     <summary>⌚ Notificaciones en el reloj</summary>
     <div class="settings">
       <button id="permBtn">Activar notificaciones</button>
@@ -88,15 +92,15 @@
       <label class="row"><input type="checkbox" id="wakeChk"> Mantener la pantalla encendida</label>
       <p class="small">
         <b>iPhone + Apple Watch:</b> en Safari toca Compartir → «Añadir a pantalla de inicio», abre la app desde ese icono
-        y activa las notificaciones (iOS 16.4 o superior). Las notificaciones del iPhone se reflejan en el Watch
-        cuando el iPhone está bloqueado y el reloj en tu muñeca.<br>
+        y activa las notificaciones (iOS 16.4 o superior). Con el iPhone bloqueado iOS congela esta app, así que para
+        recibir los avisos a tiempo en el Watch usa ntfy (abajo).<br>
         <b>Android + Wear OS / Galaxy Watch:</b> las notificaciones de Chrome se reenvían al reloj automáticamente.
       </p>
       <label>Tema de ntfy (aviso garantizado aunque la app esté cerrada)
         <input type="text" id="ntfyTopic" placeholder="ej. pomodoro-joan-8f3k2" autocomplete="off" autocapitalize="off" spellcheck="false">
       </label>
       <p class="small">
-        Opcional, recomendado. Instala la app gratuita <b>ntfy</b> en tu teléfono, suscríbete al mismo tema y permite sus
+        Imprescindible en iPhone, recomendado en Android. Instala la app gratuita <b>ntfy</b> en tu teléfono, suscríbete al mismo tema y permite sus
         notificaciones en el reloj. Al iniciar, la app programa en el servidor ntfy.sh todos los avisos de trabajo y descanso,
         así llegan aunque el teléfono suspenda el navegador. Usa un nombre difícil de adivinar: los temas de ntfy.sh son públicos.
       </p>
@@ -343,6 +347,32 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { tick(); requestWake(); }
   });
+
+  // ---------- Avisos específicos de iPhone ----------
+  const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  function updateIosHint() {
+    const el = $('iosHint');
+    if (!IS_IOS) { el.hidden = true; return; }
+    if (!STANDALONE) {
+      el.innerHTML = '<b>Estás en Safari.</b> iOS solo permite notificaciones si abres la app desde la pantalla de inicio: ' +
+        'toca Compartir → «Añadir a pantalla de inicio» y ábrela desde ese icono.';
+      el.hidden = false; return;
+    }
+    if (!topic()) {
+      el.innerHTML = '<b>Para recibir los avisos en el Apple Watch configura ntfy.</b> Con el iPhone bloqueado, iOS congela ' +
+        'esta app y su temporizador no avisa a tiempo. 1) Instala la app gratuita ntfy. 2) Suscríbete a un tema con nombre ' +
+        'difícil de adivinar. 3) Escribe el mismo nombre abajo en «Tema de ntfy». 4) Toca «Enviar notificación de prueba» y bloquea el iPhone.';
+      el.hidden = false; $('watchBox').open = true; return;
+    }
+    el.hidden = true;
+  }
+  $('ntfyTopic').addEventListener('change', updateIosHint);
+  $('startBtn').addEventListener('click', () => {
+    if (IS_IOS && !topic()) setStatus('Sin tema de ntfy: los avisos no llegarán al Watch con el iPhone bloqueado.', true);
+  });
+  updateIosHint();
 
   updatePermUI();
   if (FAST) setStatus('Modo rápido: 1 minuto = 1 segundo.');

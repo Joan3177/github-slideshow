@@ -11,7 +11,7 @@ Publicada con GitHub Pages en `https://<usuario>.github.io/github-slideshow/pomo
 - **iPhone + Apple Watch** (iOS 16.4+): Safari → Compartir → «Añadir a pantalla de inicio», abrir desde el icono
   y activar notificaciones. iOS refleja la notificación en el Watch cuando el iPhone está bloqueado.
 - **Android + Wear OS / Galaxy Watch**: las notificaciones de Chrome se reenvían al reloj.
-- **ntfy (recomendado)**: los navegadores móviles suspenden JavaScript con la pantalla apagada, así que los avisos
+- **ntfy (imprescindible en iPhone)**: los navegadores móviles suspenden JavaScript con la pantalla apagada, así que los avisos
   locales pueden retrasarse hasta que abras la app. Si escribes un tema de ntfy, al iniciar se programan en
   ntfy.sh todos los avisos de la sesión; instala la app ntfy, suscríbete al tema y permite sus notificaciones en el reloj.
   Limitación: pausar o reiniciar no cancela avisos ya programados en ntfy.

@@ -1,6 +1,6 @@
 // Service worker: caché offline + notificaciones del sistema (reenviadas al reloj
 // por iOS/watchOS o Android/Wear OS).
-const CACHE = 'pomodoro-v1';
+const CACHE = 'pomodoro-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -17,7 +17,12 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+  // Red primero (para recibir actualizaciones); caché si no hay conexión.
+  e.respondWith(
+    fetch(e.request)
+      .then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
+      .catch(() => caches.match(e.request))
+  );
 });
 
 // Al tocar la notificación (en el teléfono o en el reloj) se abre/enfoca la app.
